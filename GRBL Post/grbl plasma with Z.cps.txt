@@ -10,7 +10,7 @@
   FORKID {0A45B7F8-16FA-450B-AB4F-0E1BC1A65FAA}
 */
 
-description = "Grbl Laser";
+description = "Grbl Plasma with floating Z";
 vendor = "grbl";
 vendorUrl = "https://github.com/grbl/grbl/wiki";
 legal = "Copyright (C) 2012-2019 by Autodesk, Inc.";
@@ -42,8 +42,10 @@ properties = {
   separateWordsWithSpace: true, // specifies that the words should be separated with a white space
   PWMPower: 1000, // set the PWM value for relay 
   torchStartDelay: 0.8,
-  floatingDistance: 3.516
-};
+  floatingDistance: 11.516,
+  floatingHeadDownFeedRate: 300,
+  floatingHeadUpFeedRate: 1000
+}
 
 // user-defined property definitions
 propertyDefinitions = {
@@ -54,7 +56,9 @@ propertyDefinitions = {
   separateWordsWithSpace: { title: "Separate words with space", description: "Adds spaces between words if 'yes' is selected.", type: "boolean" },
   PWMPower: { title: "Through power", description: "Sets the PMW for the relay PIN in GRBL.", type: "number" },
   torchStartDelay: { title: "Torch Start Delay", description: "Delay between the torch ignites and starts to move", type: "number" },
-  floatingDistance:{title: "Floting Head Distance", description: "Distance between plasma head and the ensdtop when this one triggers", type: "number"}
+  floatingDistance: { title: "Floting Head Distance", description: "Distance between plasma head and the ensdtop when this one triggers", type: "number" },
+  floatingHeadDownFeedRate: { title: "Floting Head Down Feed Rate", description: "Speed at witch the head plunges into the piece until endstop is triggered", type: "number" },
+  floatingHeadUpFeedRate: { title: "Floting Head Up Feed Rate", description: "Speed at witch the head moves up to cutting height after endstop trigger or starting the torch while touching", type: "number" }
 };
 
 var gFormat = createFormat({ prefix: "G", decimals: 1 });
@@ -287,50 +291,46 @@ function onPower(power) {
     writeComment("Touch off start");
     var clearence = getParameter("operation:clearanceHeight_value");
     var topHeight = getParameter("operation:topHeight_value");
-    var rapidFeed = getParameter("operation:noEngagementFeedrate");
-   
+
     //move z down until endstop is tripped (or stop after moving topHeight+floatingDistance+1 mm)
-    writeBlock(feedOutput.format(rapidFeed/3), gFormat.format(38.3), zOutput.format(-(topHeight+properties.floatingDistance+1)));
+    writeBlock(feedOutput.format(properties.floatingHeadDownFeedRate), gFormat.format(38.3), zOutput.format(-(topHeight + properties.floatingDistance + 10)));
     //move z up until endstop is realesed (or stop after a topHeight+floatingDistance+1 mm)
     //writeBlock(feedOutput.format(rapidFeed/20), gFormat.format(38.5), zOutput.format(topHeight+properties.floatingDistance+1));
-    //THIS IS A HACK FOR TESTING::: FIND ANOTHER WAY!!!
-    //writeBlock("$X");
     //define new Z zero over work piece (this will be equal to the floatingDistance distance)
     writeBlock(gFormat.format(92), zOutput.format(-properties.floatingDistance));
     //go to Z zero based on new coordinates
-    writeBlock(gFormat.format(0),zOutput.format(0))
+    writeBlock(gFormat.format(0), zOutput.format(0))
     //start torch while on contact
     writeBlock(mFormat.format(3)); // or M21/M20
     //wait for torch start
-    writeBlock(gFormat.format(4), pFormat.format(properties.torchStartDelay/2))
-    //move torch up to top height (cuting distance)
-    writeBlock(feedOutput.format(rapidFeed/2),zOutput.format(topHeight))
-    //dwell torchStartDelay Seconds
     writeBlock(gFormat.format(4), pFormat.format(properties.torchStartDelay))
+    //move torch up to top height (cuting distance)
+    writeBlock(feedOutput.format(properties.floatingHeadUpFeedRate), zOutput.format(topHeight))
+    //dwell torchStartDelay Seconds
+    //writeBlock(gFormat.format(4), pFormat.format(properties.torchStartDelay/2))
     writeComment("Touch off end");
   } else {
     writeBlock(mFormat.format(5));
   }
 }
 
-function startProbe(){
+function startProbe() {
   writeComment("Initial probe start");
-    var clearence = getParameter("operation:clearanceHeight_value");
-    var topHeight = getParameter("operation:topHeight_value");
-    var rapidFeed = getParameter("operation:noEngagementFeedrate");
-   
-    //move z down until endstop is tripped (or stop after moving topHeight+floatingDistance+1 mm)
-    writeBlock(feedOutput.format(rapidFeed/3), gFormat.format(38.3), zOutput.format(-(topHeight+properties.floatingDistance+1)));
-    //define new Z zero over work piece (this will be equal to the floatingDistance distance)
-    writeBlock(gFormat.format(92), zOutput.format(-properties.floatingDistance));
-    //go to Z zero based on new coordinates
-    writeBlock(gFormat.format(0),zOutput.format(0))
-    //start torch while on contact
-    //move torch up to top height (cuting distance)
-    writeBlock(feedOutput.format(rapidFeed/2),zOutput.format(topHeight))
-    //dwell torchStartDelay Seconds
-    
-    writeComment("Initial probe end");
+  var clearence = getParameter("operation:clearanceHeight_value");
+  var topHeight = getParameter("operation:topHeight_value");
+
+  //move z down until endstop is tripped (or stop after moving topHeight+floatingDistance+1 mm)
+  writeBlock(feedOutput.format(properties.floatingHeadDownFeedRate / 3), gFormat.format(38.3), zOutput.format(-(topHeight + properties.floatingDistance + 10)));
+  //define new Z zero over work piece (this will be equal to the floatingDistance distance)
+  writeBlock(gFormat.format(92), zOutput.format(-properties.floatingDistance));
+  //go to Z zero based on new coordinates
+  writeBlock(gFormat.format(0), zOutput.format(0))
+  //start torch while on contact
+  //move torch up to top height (cuting distance)
+  writeBlock(feedOutput.format(properties.floatingHeadUpFeedRate), zOutput.format(topHeight))
+  //dwell torchStartDelay Seconds
+
+  writeComment("Initial probe end");
 }
 
 function onMovement(movement) {
