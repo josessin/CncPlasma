@@ -1,0 +1,18 @@
+%
+(CirculoPrueba)
+(Machine)
+(  vendor: Jose Antonini)
+(  model: Plasma One)
+(  description: Plasma Cutter)
+G90 G94
+G17
+G21
+
+(2D Profile1)
+G54
+G0 S1000 M5
+(Initial probe start)
+G1 S0
+M30
+%
+!Error: Failed to post data. See log for details.
